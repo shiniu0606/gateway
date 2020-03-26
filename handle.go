@@ -28,12 +28,13 @@ func writeErrCode(c net.Conn, errCode []byte, httpws bool) {
 
 func handleConn(c net.Conn) {
 	defer func() {
+		log.Info("client closed: "+ ipAddrFromRemoteAddr(c.RemoteAddr().String()))
 		c.Close()
 		if r := recover(); r != nil {
 			log.Error("Recovered in", r, ":", string(debug.Stack()))
 		}
 	}()
-
+	log.Info("client connect: "+ ipAddrFromRemoteAddr(c.RemoteAddr().String()))
 	c.SetReadDeadline(time.Now().Add(_ConnReadTimeout))
 
 	rdr := bufio.NewReader(c)

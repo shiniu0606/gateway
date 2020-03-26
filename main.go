@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"net"
 	"net/http"
+	"strings"
 
 	_ "net/http/pprof"
 	log "github.com/shiniu0606/gateway/log"
@@ -39,7 +40,7 @@ func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	os.Setenv("GOTRACEBACK", "crash")
 
-	log.InitLog("./logs/info.log","./logs/error.log")
+	log.InitLog(AppConfigs.InfoLogPath,AppConfigs.ErrorLogPath)
 
 	_BackendAddrCache.Store(make(backendAddrMap))
 
@@ -52,9 +53,9 @@ func main() {
 		syscall.Setrlimit(syscall.RLIMIT_NOFILE, &lim)
 	}
 
-	_SecretPassphase = []byte(os.Getenv("SECRET"))
+	_SecretPassphase = []byte(AppConfigs.Secret)
 
-	listenPort, err := strconv.Atoi(os.Getenv("LISTEN_PORT"))
+	listenPort, err := strconv.Atoi(AppConfigs.DefaultPort)
 	if err == nil && listenPort > 0 && listenPort <= 65535 {
 		_DefaultPort = listenPort
 	}
@@ -125,3 +126,10 @@ func backendAddrList(key string, val string) {
 	_BackendAddrCache.Store(m2) // atomically replace the current object with the new one
 }
 
+func ipAddrFromRemoteAddr(s string) string {
+	idx := strings.LastIndex(s, ":")
+	if idx == -1 {
+		return s
+	}
+	return s[:idx]
+}
