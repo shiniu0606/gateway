@@ -95,7 +95,9 @@ func backendAddrDecrypt(key []byte) (string, error) {
 	}
 
 	// Try to decrypt it (AES)
-	addr, err := AesDecrypt(string(_SecretPassphase), string(key))
+	log.Info("_SecretPassphase:"+string(_SecretPassphase))
+	log.Info("key:"+string(key))
+	addr, err := AesDecrypt(string(key), string(_SecretPassphase))
 	if err != nil {
 		return "127.0.0.1:8888", err
 	}

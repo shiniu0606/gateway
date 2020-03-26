@@ -28,13 +28,13 @@ func writeErrCode(c net.Conn, errCode []byte, httpws bool) {
 
 func handleConn(c net.Conn) {
 	defer func() {
-		log.Info("client closed: "+ ipAddrFromRemoteAddr(c.RemoteAddr().String()))
+		//log.Info("client closed: "+ c.RemoteAddr().String())
 		c.Close()
 		if r := recover(); r != nil {
 			log.Error("Recovered in", r, ":", string(debug.Stack()))
 		}
 	}()
-	log.Info("client connect: "+ ipAddrFromRemoteAddr(c.RemoteAddr().String()))
+	//log.Info("client connect: "+ c.RemoteAddr().String())
 	c.SetReadDeadline(time.Now().Add(_ConnReadTimeout))
 
 	rdr := bufio.NewReader(c)
@@ -44,12 +44,14 @@ func handleConn(c net.Conn) {
 	if err != nil {
 		// TODO: how to cause error to test this?
 		writeErrCode(c, []byte("1101"), false)
+		//log.Info("client error 1101: "+ c.RemoteAddr().String())
 		return
 	}
-
+	
 	//first byte 0x90 decrypt addr
-	if b == byte(0x90) {
+	if b != byte(0x90) {
 		writeErrCode(c, []byte("1102"), false)
+		//log.Info("client error 1102: "+ c.RemoteAddr().String() + " byte:"+string(b))
 		return
 	}
 
@@ -58,6 +60,7 @@ func handleConn(c net.Conn) {
 
 	if err != nil || blen == 0 {
 		writeErrCode(c, []byte("1103"), false)
+		//og.Info("client error 1103: "+ c.RemoteAddr().String())
 		return
 	}
 
@@ -67,17 +70,19 @@ func handleConn(c net.Conn) {
 	if n != int(blen) {
 		// TODO: how to cause error to test this?
 		writeErrCode(c, []byte("1104"), false)
+		//log.Info("client error 1104: "+ c.RemoteAddr().String())
 		return
 	}
-
+	fmt.Println(p)
 	// decrypt addr
 	addr, err := backendAddrDecrypt(p)
 	if err != nil {
 		writeErrCode(c, []byte("1105"), false)
+		//log.Info("client error 1105: "+ c.RemoteAddr().String())
 		return
 	}
 	
-
+	//log.Info("start tunneling: "+ c.RemoteAddr().String())
 	// Build tunnel
 	err = tunneling(string(addr), rdr, c)
 	if err != nil {
