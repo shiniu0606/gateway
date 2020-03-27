@@ -56,13 +56,13 @@ func websockethandle(c net.Conn) {
 		}
 		return
 	}
-	log.Info("ws send addr: ",addr)
+	//log.Info("ws send addr: ",addr)
 	// decrypt addr
 	decaddr, err := backendAddrDecrypt(addr)
 	if err != nil {
 		return
 	}
-	log.Info("ws send addr: ",decaddr)
+	//log.Info("ws send addr: ",decaddr)
 	// Build tunnel
 	err = tunneling(string(decaddr), rdr, c)
 	if err != nil {
@@ -70,12 +70,46 @@ func websockethandle(c net.Conn) {
 	}
 }
 
-func writewsframe(fin bool, opcode byte,data []byte,c net.Conn) error {
-	return nil
+func SendText(c net.Conn,data []byte) error {
+	return writewsframe(true,false, 0x1, data,c)
+}
+
+func writewsframe(fin bool,mask bool, opcode byte,data []byte,c net.Conn) error {
+	//max frame header may 14 length
+	buf := make([]byte, 0, len(data)+14)
+
+	var finBit, maskBit byte
+	if fin {
+		finBit = 0x80
+	} else {
+		finBit = 0
+	}
+	buf = append(buf, finBit|opcode)
+	length := len(data)
+	if mask {
+		maskBit = 0x80
+	} else {
+		maskBit = 0
+	}
+
+	if length < 126 {
+		buf = append(buf, byte(length)|maskBit)
+	} else if length < 0xFFFF {
+		buf = append(buf, 126|maskBit, 0, 0)
+		binary.BigEndian.PutUint16(buf[len(buf)-2:], uint16(length))
+	} else {
+		buf = append(buf, 127|maskBit, 0, 0, 0, 0, 0, 0, 0, 0)
+		binary.BigEndian.PutUint64(buf[len(buf)-8:], uint64(length))
+	}
+
+	buf = append(buf, data...)
+
+	_,err := c.Write(buf)
+	return err
 }
 
 //读取一个完整消息
-func readwsmessage(c net.Conn) (massage []byte,err error) {
+func ReadWsMessage(c net.Conn) (massage []byte,err error) {
 	data := make([]byte, 0)
 	for {
 		final, message, err := readwsframe(c)
@@ -154,7 +188,7 @@ func readwsframe(c net.Conn) (fin bool,data []byte,err error) {
 		}
 		//fmt.Print("mask", mKey)
 	}
-	log.Info(string(content))
+	//log.Info(string(content))
 
 	return fin,content,nil
 }

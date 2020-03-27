@@ -62,9 +62,12 @@ func servWebsocketToTcp() {
 			defer c.Close()
 
 			for {
-				_,massage,_ := readwsframe(c)
-				fmt.Println("message:",string(massage))
-				
+				message,_ := ReadWsMessage(c)
+				if len(message) > 0 {
+					fmt.Println("message:",string(message))
+				}
+
+				SendText(c,[]byte("server "+string(message)))
 			}
 		}(c)
 	}
@@ -196,8 +199,36 @@ func testWebsocket(cipherAddr []byte) {
 		return
 	}
 
+	done := make(chan struct{})
+	go func() {
+		for {
+			_, message, err := c.ReadMessage()
+			if err != nil {
+				log.Println("read:", err)
+				return
+			}
+			log.Printf("recv: %s", message)
+		}
+	}()
+
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
 	for i := 0; i < 5; i++ {
 		c.WriteMessage(websocket.TextMessage, []byte("send:"+strconv.Itoa(i)))
+	}
+
+	for {
+		select {
+		case <-done:
+			return
+		case t := <-ticker.C:
+			err := c.WriteMessage(websocket.TextMessage, []byte(t.String()))
+			if err != nil {
+				log.Println("write:", err)
+				return
+			}
+		}
 	}
 }
 
