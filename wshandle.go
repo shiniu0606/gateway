@@ -43,30 +43,78 @@ func websockethandle(c net.Conn) {
 	}()
 	c.SetReadDeadline(time.Now().Add(_ConnReadTimeout))
 
+	rdr := bufio.NewReader(c)
 	if !handshake(c) {
         return
 	}
-	
-	_,_ = readwsframe(c)
+	//握手后的第一条消息，传输加密的backend地址
+	_,addr,err := readwsframe(c)
+
+	if err != nil {
+		if err != io.EOF {
+			log.Info("x", err)
+		}
+		return
+	}
+	log.Info("ws send addr: ",addr)
+	// decrypt addr
+	decaddr, err := backendAddrDecrypt(addr)
+	if err != nil {
+		return
+	}
+	log.Info("ws send addr: ",decaddr)
+	// Build tunnel
+	err = tunneling(string(decaddr), rdr, c)
+	if err != nil {
+		log.Error(err)
+	}
+}
+
+func writewsframe(fin bool, opcode byte,data []byte,c net.Conn) error {
+	return nil
+}
+
+//读取一个完整消息
+func readwsmessage(c net.Conn) (massage []byte,err error) {
+	data := make([]byte, 0)
+	for {
+		final, message, err := readwsframe(c)
+		if final {
+			data = append(data, message...)
+			break
+		} else {
+			data = append(data, message...)
+		}
+		if err != nil {
+			return data, err
+		}
+	}
+
+	return data, nil
 }
 
 //ws拆包
-func readwsframe(c net.Conn) (data []byte,err error) {
+func readwsframe(c net.Conn) (fin bool,data []byte,err error) {
 	var buf     []byte
 	var mask    byte
 	buf = make([]byte, 2)
 	_, err = io.ReadFull(c, buf)
 
 	if err != nil {
-		return nil,err
+		return true,nil,err
 	}
-	//final := buf[0]&finalBit != 0
-	//frameType := int(buf[0] & 0xf)
+
+	fin = buf[0]&0x80 != 0
+
+	opcode := buf[0] & 0xf
+	if opcode == 8 {
+		return true,nil,errors.New("client want close connect")
+	}
 
 	mask = buf[1] >> 7
 
 	if rsv := buf[0] & (rsv1Bit | rsv2Bit | rsv3Bit); rsv != 0 {
-		return nil,errors.New("unexpected reserved bits 0x" + strconv.FormatInt(int64(rsv), 16))
+		return true,nil,errors.New("unexpected reserved bits 0x" + strconv.FormatInt(int64(rsv), 16))
 	}
 
 	payload := buf[1] & 0x7f
@@ -108,7 +156,7 @@ func readwsframe(c net.Conn) (data []byte,err error) {
 	}
 	log.Info(string(content))
 
-	return content,nil
+	return fin,content,nil
 }
 
 func handshake(c net.Conn) bool {

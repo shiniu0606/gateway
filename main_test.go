@@ -14,12 +14,14 @@ import (
 	"bytes"
 	"net/url"
 	"log"
+	"strconv"
 
 	"github.com/gorilla/websocket"
 )
 
 var (
 	_echoServerAddr      = "127.0.0.1:62863"
+	_echoWebsocketServerAddr      = "127.0.0.1:62862"
 	_defaultFrontdAddr   = "127.0.0.1:4399"
 	_defaultWsdAddr   = "127.0.0.1:4398"
 )
@@ -29,6 +31,7 @@ func TestMain(m *testing.M){
 
 	// start echo server
 	go servEcho()
+	go servWebsocketToTcp()
 	go main()
 
 	rand.Seed(time.Now().UnixNano())
@@ -36,6 +39,35 @@ func TestMain(m *testing.M){
 	// wait for servers to start
 	time.Sleep(time.Second)
 	os.Exit(m.Run())
+}
+
+func servWebsocketToTcp() {
+	l, err := net.Listen("tcp", string(_echoWebsocketServerAddr))
+	if err != nil {
+		fmt.Println("Error listening:", err.Error())
+		os.Exit(1)
+	}
+	// Close the listener when the application closes.
+	defer l.Close()
+	fmt.Println("Listening on " + string(_echoWebsocketServerAddr))
+	for {
+		// Listen for an incoming connection.
+		c, err := l.Accept()
+		if err != nil {
+			fmt.Println("Error accepting: ", err.Error())
+			os.Exit(1)
+		}
+		// Handle connections in a new goroutine.
+		go func(c net.Conn) {
+			defer c.Close()
+
+			for {
+				_,massage,_ := readwsframe(c)
+				fmt.Println("message:",string(massage))
+				
+			}
+		}(c)
+	}
 }
 
 func servEcho() {
@@ -138,7 +170,7 @@ func TestProtocolDecrypt(*testing.T) {
 }
 
 func TestWebsocketDecrypt(*testing.T) {
-	b, err := encryptText(_echoServerAddr, "4d4cd0e76aecc5eca4dc322eaad3448b")
+	b, err := encryptText(_echoWebsocketServerAddr, "4d4cd0e76aecc5eca4dc322eaad3448b")
 	if err != nil {
 		panic(err)
 	}
@@ -162,6 +194,10 @@ func testWebsocket(cipherAddr []byte) {
 	if err != nil {
 		log.Println("write:", err)
 		return
+	}
+
+	for i := 0; i < 5; i++ {
+		c.WriteMessage(websocket.TextMessage, []byte("send:"+strconv.Itoa(i)))
 	}
 }
 
