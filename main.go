@@ -8,8 +8,8 @@ import (
 	"syscall"
 	"strconv"
 	"net"
-	"net/http"
 	"strings"
+	"os/signal"
 
 	_ "net/http/pprof"
 	log "github.com/shiniu0606/gateway/log"
@@ -32,6 +32,7 @@ var (
 
 var (
 	_DefaultPort        = 4399
+	_WebsocketPort	    = 4398
 )
 
 type backendAddrMap map[string]string
@@ -60,14 +61,26 @@ func main() {
 		_DefaultPort = listenPort
 	}
 
-	pprofPort, err := strconv.Atoi(os.Getenv("PPROF_PORT"))
-	if err == nil && pprofPort > 0 && pprofPort <= 65535 {
-		go func() {
-			http.ListenAndServe(":"+strconv.Itoa(pprofPort), nil)
-		}()
+	listenPort, err = strconv.Atoi(AppConfigs.WebScoketPort)
+	if err == nil && listenPort > 0 && listenPort <= 65535 {
+		_WebsocketPort = listenPort
 	}
-	log.Info("listenAndServe start")
+
+	//pprofPort, err := strconv.Atoi(os.Getenv("PPROF_PORT"))
+	//if err == nil && pprofPort > 0 && pprofPort <= 65535 {
+	//	go func() {
+	//		http.ListenAndServe(":"+strconv.Itoa(pprofPort), nil)
+	//	}()
+	//}
+	go listenWsServe()
+	log.Info("listenAndServe start :",AppConfigs.DefaultPort)
 	listenAndServe()
+
+	// catchs system signal
+	chSig := make(chan os.Signal)
+	signal.Notify(chSig, syscall.SIGINT, syscall.SIGTERM, syscall.SIGTERM)
+	sig := <-chSig
+	log.Info("siginal:", sig)
 }
 
 func listenAndServe() {

@@ -11,6 +11,7 @@ var AppConfigs AppConfig
 
 type AppConfig struct {
 	DefaultPort 	string `json:"DefaultPort"` 
+	WebScoketPort	string `json:"WebsocketPort"`    
 	Secret     		string `json:"Secret"`    
 	InfoLogPath       string `json:"InfoLogPath"`       //mysql连接字符串
 	ErrorLogPath       string `json:"ErrorLogPath"`       //redis连接字符串

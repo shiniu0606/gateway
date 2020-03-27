@@ -1,5 +1,6 @@
 {
     "DefaultPort": "4399",
+    "WebScoketPort": "4398",
     "Secret": "4d4cd0e76aecc5eca4dc322eaad3448b",
     "InfoLogPath": "./logs/info.log",
     "ErrorLogPath": "./logs/error.log"

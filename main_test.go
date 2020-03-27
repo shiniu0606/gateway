@@ -12,11 +12,16 @@ import (
 	"fmt"
 	"io"
 	"bytes"
+	"net/url"
+	"log"
+
+	"github.com/gorilla/websocket"
 )
 
 var (
 	_echoServerAddr      = "127.0.0.1:62863"
 	_defaultFrontdAddr   = "127.0.0.1:4399"
+	_defaultWsdAddr   = "127.0.0.1:4398"
 )
 
 func TestMain(m *testing.M){
@@ -132,6 +137,34 @@ func TestProtocolDecrypt(*testing.T) {
 	testProtocol(append(head, []byte(b)...))
 }
 
+func TestWebsocketDecrypt(*testing.T) {
+	b, err := encryptText(_echoServerAddr, "4d4cd0e76aecc5eca4dc322eaad3448b")
+	if err != nil {
+		panic(err)
+	}
+	testWebsocket([]byte(b))
+
+	// test cached hitted
+	testWebsocket([]byte(b))
+}
+
+func testWebsocket(cipherAddr []byte) {
+	u := url.URL{Scheme: "ws", Host: "localhost:4398", Path: "/"}
+	log.Printf("connecting to %s", u.String())
+
+	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	if err != nil {
+		log.Fatal("dial:", err)
+	}
+	defer c.Close()
+
+	err = c.WriteMessage(websocket.TextMessage, cipherAddr)
+	if err != nil {
+		log.Println("write:", err)
+		return
+	}
+}
+
 func testProtocol(cipherAddr []byte) {
 	// * test decryption
 	var conn net.Conn
@@ -162,6 +195,12 @@ func BenchmarkEcho(b *testing.B) {
 func BenchmarkNoHitLatency(b *testing.B) {
 	for i := 0; i < 10; i++ {
 		TestProtocolDecrypt(&testing.T{})
+	}
+}
+
+func BenchmarkWsNoHitLatency(b *testing.B) {
+	for i := 0; i < 10; i++ {
+		TestWebsocketDecrypt(&testing.T{})
 	}
 }
 // func BenchmarkNoHitLatencyParallel(b *testing.B) {
