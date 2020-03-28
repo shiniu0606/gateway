@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"net"
 	"strings"
-	"os/signal"
 
 	_ "net/http/pprof"
 	log "github.com/shiniu0606/gateway/log"
@@ -75,12 +74,6 @@ func main() {
 	go listenWsServe()
 	log.Info("listenAndServe start :",AppConfigs.DefaultPort)
 	listenAndServe()
-
-	// catchs system signal
-	chSig := make(chan os.Signal)
-	signal.Notify(chSig, syscall.SIGINT, syscall.SIGTERM, syscall.SIGTERM)
-	sig := <-chSig
-	log.Info("siginal:", sig)
 }
 
 func listenAndServe() {
